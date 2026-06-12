@@ -102,47 +102,6 @@ function teamLabel(team: string) {
   return TEAM_LABELS[team] ?? team;
 }
 
-function LoginPage({ onAuthenticate }: { onAuthenticate: (token: string) => void }) {
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleLogin() {
-    setPending(true);
-    setError(null);
-
-    try {
-      const session = await fetchJson<{ token: string }>('/api/session', { method: 'POST' });
-      window.localStorage.setItem('ops-session', session.token);
-      onAuthenticate(session.token);
-    } catch (loginError) {
-      setError(loginError instanceof Error ? loginError.message : 'Connexion impossible');
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <main className="ops-login-shell">
-      <section className="ops-login-card">
-        <p className="ops-eyebrow">Poste de supervision</p>
-        <h1>NorthStar Desk</h1>
-        <p>
-          Un cockpit pour suivre les files, arbitrages et signaux faibles sur l'ensemble des flux metier.
-        </p>
-        <div className="ops-chip-row">
-          <span>Flux centralises</span>
-          <span>Journal live</span>
-          <span>Supervision continue</span>
-        </div>
-        <button type="button" onClick={handleLogin} disabled={pending}>
-          {pending ? 'Connexion en cours...' : 'Ouvrir le cockpit'}
-        </button>
-        {error ? <p className="ops-inline-error">{error}</p> : null}
-      </section>
-    </main>
-  );
-}
-
 function Sidebar({ summary, statusSummary }: { summary: SummaryCard[]; statusSummary: StatusSnapshot[] }) {
   return (
     <aside className="ops-sidebar">
@@ -624,17 +583,12 @@ function SettingsPage({ settings }: { settings: SettingsPayload }) {
 }
 
 export default function OpsApp() {
-  const [sessionToken, setSessionToken] = useState<string | null>(() => window.localStorage.getItem('ops-session'));
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [records, setRecords] = useState<RecordRow[]>([]);
   const [settings, setSettings] = useState<SettingsPayload | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsPayload | null>(null);
 
   useEffect(() => {
-    if (!sessionToken) {
-      return;
-    }
-
     function loadAll() {
       Promise.all([
         fetchJson<DashboardPayload>('/api/dashboard'),
@@ -652,7 +606,7 @@ export default function OpsApp() {
     loadAll();
     const timer = window.setInterval(loadAll, 5000);
     return () => window.clearInterval(timer);
-  }, [sessionToken]);
+  }, []);
 
   const statusSummary = useMemo<StatusSnapshot[]>(() => {
     const counts = records.reduce<Record<string, number>>((accumulator, record) => {
@@ -706,10 +660,6 @@ export default function OpsApp() {
       .sort((left, right) => right.score + right.history.length * 4 - (left.score + left.history.length * 4))
       .slice(0, 6);
   }, [records]);
-
-  if (!sessionToken) {
-    return <LoginPage onAuthenticate={setSessionToken} />;
-  }
 
   if (!dashboard || !settings || !analytics) {
     return <main className="ops-loading-shell"><p>Chargement du cockpit...</p></main>;
