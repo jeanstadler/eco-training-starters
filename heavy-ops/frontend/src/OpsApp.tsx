@@ -102,7 +102,9 @@ function teamLabel(team: string) {
   return TEAM_LABELS[team] ?? team;
 }
 
-function Sidebar({ summary, statusSummary }: { summary: SummaryCard[]; statusSummary: StatusSnapshot[] }) {
+// US01 : la barre laterale n'affiche plus le resume ni les statuts (deja presents dans la vue centrale).
+// On garde le titre et la navigation ; summary / statusSummary ne sont donc plus necessaires ici.
+function Sidebar() {
   return (
     <aside className="ops-sidebar">
       <div className="ops-sidebar-block">
@@ -119,30 +121,6 @@ function Sidebar({ summary, statusSummary }: { summary: SummaryCard[]; statusSum
         <NavLink to="/analytics">Analyse</NavLink>
         <NavLink to="/settings">Reglages</NavLink>
       </nav>
-
-      <div className="ops-sidebar-block">
-        <p className="ops-eyebrow">Repere rapide</p>
-        <div className="ops-sidebar-metrics">
-          {summary.slice(0, 3).map((item) => (
-            <article key={item.label} className="ops-sidebar-card">
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-            </article>
-          ))}
-        </div>
-      </div>
-
-      <div className="ops-sidebar-block">
-        <p className="ops-eyebrow">Etat des files</p>
-        <div className="ops-status-stack">
-          {statusSummary.map((item) => (
-            <div key={item.key} className="ops-status-row">
-              <span className={'ops-status-pill ' + item.tone}>{item.label}</span>
-              <strong>{item.count}</strong>
-            </div>
-          ))}
-        </div>
-      </div>
     </aside>
   );
 }
@@ -189,7 +167,8 @@ function DashboardPage({
             </div>
           </div>
           <div className="ops-chart-grid">
-            {dashboard.charts.slice(0, 6).map((chart, index) => (
+            {/* US01 : 4 graphiques au lieu de 6 (nombre pair pour garder la grille a 2 colonnes propre) */}
+            {dashboard.charts.slice(0, 4).map((chart, index) => (
               <article key={chart.label} className="ops-trend-card">
                 <div className="ops-card-header">
                   <h3>{CHART_TITLES[index] ?? chart.label}</h3>
@@ -213,7 +192,8 @@ function DashboardPage({
             </div>
           </div>
           <div className="ops-log-list">
-            {dashboard.logs.map((log, index) => (
+            {/* US01 : on limite le journal a 6 evenements pour alleger le DOM (avant : tous, ~20) */}
+            {dashboard.logs.slice(0, 6).map((log, index) => (
               <article key={log.message + '-' + index} className="ops-log-entry">
                 <div className="ops-card-header">
                   <span className={'ops-status-pill ' + (log.level === 'high' ? 'warning' : 'neutral')}>{log.level}</span>
@@ -266,7 +246,8 @@ function DashboardPage({
             </div>
           </div>
           <div className="ops-watch-list">
-            {urgentRecords.map((record, index) => {
+            {/* US01 : on affiche 3 points chauds au lieu de 6 */}
+            {urgentRecords.slice(0, 3).map((record, index) => {
               const meta = statusInfo(record.status);
               return (
                 <article key={record.id} className="ops-watch-card">
@@ -667,7 +648,7 @@ export default function OpsApp() {
 
   return (
     <div className="ops-app">
-      <Sidebar summary={dashboard.summary} statusSummary={statusSummary} />
+      <Sidebar />
       <main className="ops-content">
         <Routes>
           <Route
