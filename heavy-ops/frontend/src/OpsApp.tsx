@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
 
 type SummaryCard = { label: string; value: string };
@@ -104,7 +104,13 @@ function teamLabel(team: string) {
 
 // US01 : la barre laterale n'affiche plus le resume ni les statuts (deja presents dans la vue centrale).
 // On garde le titre et la navigation ; summary / statusSummary ne sont donc plus necessaires ici.
-function Sidebar() {
+// US02 : la barre laterale recoit un bouton de rafraichissement manuel + l'heure de derniere mise a jour.
+// Le rechargement automatique (toutes les 5s) est supprime : l'utilisateur recharge quand il en a besoin.
+function Sidebar({ onRefresh, lastUpdated, isRefreshing }: {
+  onRefresh: () => void;
+  lastUpdated: Date | null;
+  isRefreshing: boolean;
+}) {
   return (
     <aside className="ops-sidebar">
       <div className="ops-sidebar-block">
@@ -121,6 +127,23 @@ function Sidebar() {
         <NavLink to="/analytics">Analyse</NavLink>
         <NavLink to="/settings">Reglages</NavLink>
       </nav>
+
+      {/* US02 : rafraichissement a la demande (remplace le rechargement auto toutes les 5s) */}
+      <div className="ops-sidebar-block ops-refresh-block">
+        <button
+          type="button"
+          className="ops-refresh-button"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+        >
+          {isRefreshing ? 'Rafraichissement...' : 'Rafraichir les donnees'}
+        </button>
+        <small className="ops-refresh-meta">
+          {lastUpdated
+            ? 'Derniere mise a jour : ' + lastUpdated.toLocaleTimeString('fr-FR')
+            : 'Donnees non chargees'}
+        </small>
+      </div>
     </aside>
   );
 }
@@ -568,26 +591,35 @@ export default function OpsApp() {
   const [records, setRecords] = useState<RecordRow[]>([]);
   const [settings, setSettings] = useState<SettingsPayload | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsPayload | null>(null);
+  // US02 : on memorise l'heure du dernier chargement et l'etat "en cours" pour le bouton manuel.
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    function loadAll() {
-      Promise.all([
-        fetchJson<DashboardPayload>('/api/dashboard'),
-        fetchJson<RecordRow[]>('/api/records'),
-        fetchJson<SettingsPayload>('/api/settings'),
-        fetchJson<AnalyticsPayload>('/api/analytics')
-      ]).then(([dashboardPayload, recordPayload, settingsPayload, analyticsPayload]) => {
+  // US02 : loadAll est sorti du useEffect et memorise avec useCallback,
+  // pour pouvoir etre rappele a la demande par le bouton "Rafraichir".
+  const loadAll = useCallback(() => {
+    setIsRefreshing(true);
+    Promise.all([
+      fetchJson<DashboardPayload>('/api/dashboard'),
+      fetchJson<RecordRow[]>('/api/records'),
+      fetchJson<SettingsPayload>('/api/settings'),
+      fetchJson<AnalyticsPayload>('/api/analytics')
+    ])
+      .then(([dashboardPayload, recordPayload, settingsPayload, analyticsPayload]) => {
         setDashboard(dashboardPayload);
         setRecords(recordPayload);
         setSettings(settingsPayload);
         setAnalytics(analyticsPayload);
-      });
-    }
-
-    loadAll();
-    const timer = window.setInterval(loadAll, 5000);
-    return () => window.clearInterval(timer);
+        setLastUpdated(new Date());
+      })
+      .finally(() => setIsRefreshing(false));
   }, []);
+
+  // US02 : un seul chargement au montage. On a SUPPRIME le window.setInterval(loadAll, 5000)
+  // qui rechargeait les 4 endpoints toutes les 5 secondes (requetes reseau repetees et inutiles).
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   const statusSummary = useMemo<StatusSnapshot[]>(() => {
     const counts = records.reduce<Record<string, number>>((accumulator, record) => {
@@ -648,7 +680,7 @@ export default function OpsApp() {
 
   return (
     <div className="ops-app">
-      <Sidebar />
+      <Sidebar onRefresh={loadAll} lastUpdated={lastUpdated} isRefreshing={isRefreshing} />
       <main className="ops-content">
         <Routes>
           <Route

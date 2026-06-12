@@ -524,3 +524,27 @@ a {
     position: static;
   }
 }
+
+/* US02 : bloc de rafraichissement manuel dans la barre laterale */
+.ops-refresh-block {
+  gap: 10px;
+}
+
+.ops-refresh-button {
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, var(--ops-accent), #f0bd59);
+  color: #17212b;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ops-refresh-button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.ops-refresh-meta {
+  color: var(--ops-muted);
+}
